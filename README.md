@@ -50,4 +50,20 @@ npm install
 npm run dev   # http://localhost:3000
 ```
 
+## Deploy on Vercel (ฟรี)
+
+เว็บนี้พร้อม deploy ขึ้น Vercel ได้ทันที ไม่ต้องตั้งค่า environment variable
+(Yahoo Finance ไม่ใช้ API key):
+
+1. ไปที่ **https://vercel.com/new** แล้วล็อกอินด้วยบัญชี GitHub
+2. กด **Import** ที่ repository `chochai2424/Trading-web`
+   (อนุญาตให้ Vercel เข้าถึง repo เมื่อระบบถาม)
+3. ไม่ต้องแก้ค่าใด ๆ (ระบบตรวจพบ Next.js อัตโนมัติ) แล้วกด **Deploy**
+4. รอ 1–2 นาที จะได้ URL สาธารณะ เช่น `https://trading-web-xxxx.vercel.app`
+
+หลังจากนั้นทุกครั้งที่ push ขึ้น branch `main` เว็บจะ deploy ใหม่อัตโนมัติ
+
+> หมายเหตุ: การสแกนรอบแรกหลัง cold start ใช้เวลาราว 20–40 วินาที
+> (route ตั้ง `maxDuration = 60` ไว้แล้ว) จากนั้นผลจะถูก cache ~5 นาที
+
 > ⚠️ ข้อมูลเพื่อการศึกษาเท่านั้น ไม่ใช่คำแนะนำการลงทุน

@@ -5,6 +5,8 @@ import { cached } from "@/lib/cache";
 import type { RawQuote } from "@/lib/yahoo";
 
 export const dynamic = "force-dynamic";
+// Daily + intraday analysis can exceed the default serverless timeout
+export const maxDuration = 60;
 
 // On-demand SMC + volume-profile analysis for any ticker (watchlist).
 export async function GET(
