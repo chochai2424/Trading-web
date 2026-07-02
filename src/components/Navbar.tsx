@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import AlertCenter from "./AlertCenter";
 
 const LINKS = [
   { href: "/", label: "หน้าหลัก", match: (p: string) => p === "/" },
@@ -14,6 +15,11 @@ const LINKS = [
     href: "/conclude",
     label: "สรุปผล",
     match: (p: string) => p.startsWith("/conclude"),
+  },
+  {
+    href: "/watchlist",
+    label: "รายการโปรด",
+    match: (p: string) => p.startsWith("/watchlist"),
   },
 ];
 
@@ -40,6 +46,7 @@ export default function Navbar() {
             {l.label}
           </Link>
         ))}
+        <AlertCenter />
       </nav>
     </header>
   );

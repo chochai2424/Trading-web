@@ -84,14 +84,21 @@ export async function fetchQuote(symbol: string): Promise<Quote> {
   });
 }
 
-// Daily candles for structure analysis (~6 months).
-export async function fetchDailyCandles(symbol: string): Promise<Candle[]> {
-  return cached(`daily:${symbol}`, 2 * 60_000, async () => {
+export type ChartInterval = "1d" | "15m";
+
+// Candles for structure analysis: ~6 months daily, or ~14 days of 15m
+// bars for intraday refinement.
+export async function fetchCandles(
+  symbol: string,
+  interval: ChartInterval = "1d"
+): Promise<Candle[]> {
+  return cached(`candles:${interval}:${symbol}`, 2 * 60_000, async () => {
     try {
-      const period1 = new Date(Date.now() - 185 * 24 * 3600_000);
+      const lookbackDays = interval === "1d" ? 185 : 14;
+      const period1 = new Date(Date.now() - lookbackDays * 24 * 3600_000);
       const res = await yahooFinance.chart(symbol, {
         period1,
-        interval: "1d",
+        interval,
       });
       const candles: Candle[] = [];
       for (const q of res.quotes ?? []) {
@@ -114,11 +121,18 @@ export async function fetchDailyCandles(symbol: string): Promise<Candle[]> {
       if (candles.length === 0) throw new Error("empty chart response");
       return candles;
     } catch (err) {
-      console.error(`chart ${symbol} failed:`, (err as Error).message);
+      console.error(
+        `chart ${symbol} (${interval}) failed:`,
+        (err as Error).message
+      );
       const { sampleCandles } = await import("./sample");
-      return sampleCandles(symbol);
+      return sampleCandles(symbol, interval);
     }
   });
+}
+
+export async function fetchDailyCandles(symbol: string): Promise<Candle[]> {
+  return fetchCandles(symbol, "1d");
 }
 
 export async function fetchNews(symbol: string): Promise<NewsItem[]> {
