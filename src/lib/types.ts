@@ -37,6 +37,13 @@ export interface Levels {
   stopLoss: number; // below the order block low
 }
 
+export interface IntradayInfo {
+  bullishBos: boolean;
+  orderBlockHigh: number | null;
+  orderBlockLow: number | null;
+  refined: boolean; // entry/SL tightened using the 15m order block
+}
+
 export interface StockPick {
   symbol: string;
   name: string;
@@ -55,6 +62,7 @@ export interface StockPick {
     orderBlockLow: number | null;
     impulseRelVolume: number;
   };
+  intraday: IntradayInfo | null; // 15m refinement (null = not analyzed)
   score: number;
   rationaleTh: string; // analysis summary in Thai
 }

@@ -36,6 +36,7 @@ export default function LevelChart({
   const [status, setStatus] = useState<"loading" | "ready" | "error">(
     "loading"
   );
+  const [interval, setInterval] = useState<"1d" | "15m">("1d");
 
   useEffect(() => {
     const el = container.current;
@@ -46,7 +47,7 @@ export default function LevelChart({
 
     (async () => {
       try {
-        const res = await fetch(`/api/history/${symbol}`);
+        const res = await fetch(`/api/history/${symbol}?interval=${interval}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const { candles } = (await res.json()) as { candles: Candle[] };
         if (disposed || !candles?.length) {
@@ -64,7 +65,11 @@ export default function LevelChart({
             horzLines: { color: "#2c2c2a" },
           },
           rightPriceScale: { borderColor: "#383835" },
-          timeScale: { borderColor: "#383835" },
+          timeScale: {
+            borderColor: "#383835",
+            timeVisible: interval === "15m",
+            secondsVisible: false,
+          },
           crosshair: { horzLine: { labelBackgroundColor: "#383835" } },
           autoSize: true,
         });
@@ -126,14 +131,31 @@ export default function LevelChart({
       disposed = true;
       chart?.remove();
     };
-  }, [symbol, levels]);
+  }, [symbol, levels, interval]);
 
   return (
     <div className="rounded-lg border border-border bg-surface">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
-        <h3 className="text-sm font-semibold text-ink-2">
-          กราฟรายวันพร้อมระดับราคา SMC · {symbol}
-        </h3>
+        <div className="flex items-center gap-3">
+          <h3 className="text-sm font-semibold text-ink-2">
+            กราฟพร้อมระดับราคา SMC · {symbol}
+          </h3>
+          <div className="flex gap-1" role="group" aria-label="เลือกช่วงเวลา">
+            {(["1d", "15m"] as const).map((iv) => (
+              <button
+                key={iv}
+                onClick={() => setInterval(iv)}
+                className={`rounded-md border px-2 py-0.5 text-xs font-medium ${
+                  interval === iv
+                    ? "border-lv-entry bg-lv-entry/10 text-ink"
+                    : "border-border text-muted hover:text-ink-2"
+                }`}
+              >
+                {iv === "1d" ? "รายวัน" : "15 นาที"}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
           {LINE_SPECS.map((s) => (
             <span key={s.key} className="inline-flex items-center gap-1.5">

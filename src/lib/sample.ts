@@ -48,43 +48,50 @@ function hashSymbol(symbol: string): number {
   return h >>> 0;
 }
 
-export function sampleCandles(symbol: string, days = 130): Candle[] {
+export function sampleCandles(
+  symbol: string,
+  interval: "1d" | "15m" = "1d"
+): Candle[] {
   const stock = SAMPLE_STOCKS.find((s) => s.symbol === symbol);
   const base = stock?.basePrice ?? 5;
-  const rand = mulberry32(hashSymbol(symbol));
+  const intraday = interval === "15m";
+  const bars = intraday ? 260 : 130; // ~10 trading days of 15m bars
+  const rand = mulberry32(hashSymbol(symbol) ^ (intraday ? 0x15a : 0));
   const candles: Candle[] = [];
 
   const now = Math.floor(Date.now() / 1000);
-  const daySec = 24 * 3600;
-  let price = base * 1.15;
-  const baseVolume = 2e6 + rand() * 6e6;
+  const stepSec = intraday ? 900 : 24 * 3600;
+  // Intraday moves are smaller per bar than daily moves
+  const scale = intraday ? 0.3 : 1;
+  let price = base * (intraday ? 1.0 : 1.15);
+  const baseVolume = (intraday ? 1e5 : 2e6) + rand() * (intraday ? 3e5 : 6e6);
 
-  for (let i = 0; i < days; i++) {
-    const time = now - (days - i) * daySec;
+  for (let i = 0; i < bars; i++) {
+    const time = now - (bars - i) * stepSec;
     // Phases: drift down -> accumulate -> impulse up -> pullback -> resume
-    const p = i / days;
+    const p = i / bars;
     let drift: number;
     let volMult = 0.8 + rand() * 0.5;
     if (p < 0.35) {
-      drift = -0.004;
+      drift = -0.004 * scale;
     } else if (p < 0.72) {
-      drift = 0.0005; // accumulation range
+      drift = 0.0005 * scale; // accumulation range
     } else if (p < 0.82) {
-      drift = 0.035; // high-volume bullish impulse (BOS)
+      drift = 0.035 * scale; // high-volume bullish impulse (BOS)
       volMult = 2.5 + rand() * 1.8;
     } else if (p < 0.9) {
-      drift = -0.008; // pullback toward the order block
+      drift = -0.008 * scale; // pullback toward the order block
       volMult = 1.1 + rand() * 0.4;
     } else {
-      drift = 0.012; // rebound continuation
+      drift = 0.012 * scale; // rebound continuation
       volMult = 1.5 + rand() * 0.8;
     }
 
-    const noise = (rand() - 0.5) * 0.03;
+    const noise = (rand() - 0.5) * 0.03 * scale;
     const open = price;
     const close = Math.max(0.3, open * (1 + drift + noise));
-    const high = Math.max(open, close) * (1 + rand() * 0.015);
-    const low = Math.min(open, close) * (1 - rand() * 0.015);
+    const high = Math.max(open, close) * (1 + rand() * 0.015 * scale);
+    const low = Math.min(open, close) * (1 - rand() * 0.015 * scale);
     candles.push({
       time,
       open: Number(open.toFixed(4)),
@@ -94,6 +101,19 @@ export function sampleCandles(symbol: string, days = 130): Candle[] {
       volume: Math.round(baseVolume * volMult),
     });
     price = close;
+  }
+
+  // Align the intraday series to end at the daily close so both
+  // timeframes tell one consistent price story
+  if (intraday) {
+    const dailyClose = sampleCandles(symbol, "1d").at(-1)!.close;
+    const factor = dailyClose / candles[candles.length - 1].close;
+    for (const c of candles) {
+      c.open = Number((c.open * factor).toFixed(4));
+      c.high = Number((c.high * factor).toFixed(4));
+      c.low = Number((c.low * factor).toFixed(4));
+      c.close = Number((c.close * factor).toFixed(4));
+    }
   }
   return candles;
 }

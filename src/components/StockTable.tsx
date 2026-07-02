@@ -20,9 +20,13 @@ function LevelCell({ value, color }: { value: number; color: string }) {
 export default function StockTable({
   picks,
   quotes,
+  title,
+  onRemove,
 }: {
   picks: StockPick[];
   quotes: Record<string, Quote>;
+  title?: string;
+  onRemove?: (symbol: string) => void;
 }) {
   const exportCsv = () => {
     const header = [
@@ -63,7 +67,7 @@ export default function StockTable({
     <div className="rounded-lg border border-border bg-surface">
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <h2 className="text-sm font-semibold text-ink-2">
-          ตารางหุ้นแนะนำ 10 อันดับ (Small-Cap · SMC + Volume Profile)
+          {title ?? "ตารางหุ้นแนะนำ 10 อันดับ (Small-Cap · SMC + Volume Profile)"}
         </h2>
         <button
           onClick={exportCsv}
@@ -91,6 +95,7 @@ export default function StockTable({
                 จุดเข้าซื้อ <span className="font-normal">(OB)</span>
               </th>
               <th className="px-4 py-2 font-medium">Stop Loss</th>
+              {onRemove && <th className="px-4 py-2" />}
             </tr>
           </thead>
           <tbody>
@@ -152,6 +157,17 @@ export default function StockTable({
                       color={LEVEL_COLORS.stopLoss}
                     />
                   </td>
+                  {onRemove && (
+                    <td className="px-4 py-2.5 text-right">
+                      <button
+                        onClick={() => onRemove(p.symbol)}
+                        aria-label={`ลบ ${p.symbol} ออกจากรายการโปรด`}
+                        className="rounded-md border border-border px-2 py-1 text-xs text-muted hover:border-down hover:text-down"
+                      >
+                        ลบ
+                      </button>
+                    </td>
+                  )}
                 </tr>
               );
             })}

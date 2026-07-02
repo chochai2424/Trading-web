@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import LevelChart from "@/components/LevelChart";
 import NewsList from "@/components/NewsList";
 import TradingViewWidget from "@/components/TradingViewWidget";
 import { useQuotes, useScreen } from "@/components/useScreen";
+import { useWatchlist } from "@/components/useWatchlist";
 import { fmtCap, fmtPct, fmtUsd, fmtVolume } from "@/lib/format";
+import type { StockPick } from "@/lib/types";
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
@@ -26,8 +28,30 @@ export default function GraphPage({
   const { data } = useScreen();
   const symbols = useMemo(() => [symbol], [symbol]);
   const quotes = useQuotes(symbols);
+  const { add, remove, has } = useWatchlist();
 
-  const pick = data?.picks.find((p) => p.symbol === symbol) ?? null;
+  const screenPick = data?.picks.find((p) => p.symbol === symbol) ?? null;
+
+  // Tickers outside the top-10 (e.g. from the watchlist) get analyzed
+  // on demand so the level chart and detail panel still work
+  const [analyzed, setAnalyzed] = useState<StockPick | null>(null);
+  const [analyzeFailed, setAnalyzeFailed] = useState(false);
+  useEffect(() => {
+    setAnalyzed(null);
+    setAnalyzeFailed(false);
+    if (!data || screenPick) return;
+    let alive = true;
+    fetch(`/api/analyze/${symbol}`)
+      .then((res) => (res.ok ? res.json() : Promise.reject(res.status)))
+      .then((json) => alive && setAnalyzed(json as StockPick))
+      .catch(() => alive && setAnalyzeFailed(true));
+    return () => {
+      alive = false;
+    };
+  }, [symbol, data, screenPick]);
+
+  const pick = screenPick ?? analyzed;
+  const inWatchlist = has(symbol);
   const quote = quotes[symbol];
   const price = quote?.price ?? pick?.price;
   const change = quote?.changePercent ?? pick?.changePercent;
@@ -54,7 +78,21 @@ export default function GraphPage({
       )}
 
       <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-        <h1 className="text-xl font-bold">{symbol}</h1>
+        <h1 className="flex items-center gap-2 text-xl font-bold">
+          {symbol}
+          <button
+            onClick={() => (inWatchlist ? remove(symbol) : add(symbol))}
+            aria-label={
+              inWatchlist ? "ลบออกจากรายการโปรด" : "เพิ่มเข้ารายการโปรด"
+            }
+            title={inWatchlist ? "ลบออกจากรายการโปรด" : "เพิ่มเข้ารายการโปรด"}
+            className={`text-lg leading-none ${
+              inWatchlist ? "text-lv-mid" : "text-muted hover:text-ink-2"
+            }`}
+          >
+            {inWatchlist ? "★" : "☆"}
+          </button>
+        </h1>
         {pick && <span className="text-sm text-ink-2">{pick.name}</span>}
         {price != null && (
           <span className="tabular text-lg font-semibold">{fmtUsd(price)}</span>
@@ -81,13 +119,17 @@ export default function GraphPage({
       {/* Our chart with the SMC levels drawn as horizontal lines */}
       {pick ? (
         <LevelChart symbol={symbol} levels={pick.levels} />
-      ) : (
+      ) : analyzeFailed ? (
         <div className="rounded-lg border border-border bg-surface p-4 text-sm text-ink-2">
-          หุ้นตัวนี้ไม่อยู่ในผลสแกนรอบปัจจุบัน
-          จึงไม่มีระดับราคา SMC ให้แสดง — ดูหุ้นแนะนำได้ที่{" "}
+          วิเคราะห์หุ้นตัวนี้ไม่สำเร็จ (ไม่พบข้อมูลหรือข้อมูลไม่พอ) —
+          ดูหุ้นแนะนำได้ที่{" "}
           <Link href="/" className="text-lv-entry hover:underline">
             หน้าหลัก
           </Link>
+        </div>
+      ) : (
+        <div className="rounded-lg border border-border bg-surface p-4 text-sm text-muted">
+          กำลังวิเคราะห์ระดับราคา SMC ของ {symbol}...
         </div>
       )}
 
@@ -120,6 +162,24 @@ export default function GraphPage({
                 label="วอลุ่มช่วง Impulse เทียบค่าเฉลี่ย"
                 value={`${pick.smc.impulseRelVolume.toFixed(1)}x`}
               />
+              {pick.intraday && (
+                <>
+                  <DetailRow
+                    label="BOS กราฟ 15 นาที"
+                    value={
+                      pick.intraday.bullishBos ? "ยืนยันขาขึ้น ✓" : "ยังไม่ยืนยัน"
+                    }
+                  />
+                  <DetailRow
+                    label="Order Block 15 นาที"
+                    value={
+                      pick.intraday.orderBlockLow != null
+                        ? `${fmtUsd(pick.intraday.orderBlockLow)} – ${fmtUsd(pick.intraday.orderBlockHigh)}${pick.intraday.refined ? " (ใช้ปรับจุดเข้า)" : ""}`
+                        : "-"
+                    }
+                  />
+                </>
+              )}
               <DetailRow
                 label="POC (Point of Control)"
                 value={fmtUsd(pick.volumeProfile.poc)}
