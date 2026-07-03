@@ -7,7 +7,13 @@ import NewsList from "@/components/NewsList";
 import TradingViewWidget from "@/components/TradingViewWidget";
 import { useQuotes, useScreen } from "@/components/useScreen";
 import { useWatchlist } from "@/components/useWatchlist";
-import { fmtCap, fmtPct, fmtUsd, fmtVolume } from "@/lib/format";
+import {
+  CAP_TIER_LABELS,
+  fmtCap,
+  fmtPct,
+  fmtUsd,
+  fmtVolume,
+} from "@/lib/format";
 import type { StockPick } from "@/lib/types";
 
 function DetailRow({ label, value }: { label: string; value: string }) {
@@ -111,6 +117,19 @@ export default function GraphPage({
             pre-market: {fmtUsd(quote.preMarketPrice)}
           </span>
         )}
+        {(quote?.postMarketPrice ?? pick?.postMarketPrice) != null && (
+          <span className="tabular text-sm text-muted">
+            after-market: {fmtUsd(quote?.postMarketPrice ?? pick?.postMarketPrice)}
+          </span>
+        )}
+        {quote?.marketState === "REGULAR" && (
+          <span className="text-xs font-medium text-up">● live</span>
+        )}
+        {pick?.nearlyProfitable && (
+          <span className="rounded border border-lv-tp/50 px-1.5 py-0.5 text-xs text-lv-tp">
+            ใกล้ทำกำไร
+          </span>
+        )}
       </div>
 
       {/* Real-time chart from TradingView */}
@@ -141,6 +160,10 @@ export default function GraphPage({
               รายละเอียดการวิเคราะห์
             </h3>
             <div className="divide-y divide-grid px-4 py-2">
+              <DetailRow
+                label="ขนาด / กลุ่มอุตสาหกรรม"
+                value={`${CAP_TIER_LABELS[pick.capTier]}${pick.sector ? ` · ${pick.sector}` : ""}`}
+              />
               <DetailRow label="มูลค่าตลาด" value={fmtCap(pick.marketCap)} />
               <DetailRow
                 label="วอลุ่มวันนี้ / เฉลี่ย 3 เดือน"

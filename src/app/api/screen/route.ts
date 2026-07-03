@@ -6,9 +6,10 @@ export const dynamic = "force-dynamic";
 // Vercel Hobby-plan window instead of the default serverless timeout
 export const maxDuration = 60;
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    const result = await runScreen();
+    const force = new URL(req.url).searchParams.get("force") === "1";
+    const result = await runScreen(force);
     return NextResponse.json(result);
   } catch (err) {
     console.error("screen failed:", err);

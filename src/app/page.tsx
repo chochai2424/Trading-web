@@ -1,9 +1,18 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import StockTable from "@/components/StockTable";
 import { useQuotes, useScreen } from "@/components/useScreen";
 import { fmtPct, fmtTimeTh, fmtVolume } from "@/lib/format";
+import type { CapTier } from "@/lib/types";
+
+const TIER_CHIPS: { key: CapTier | "all"; label: string }[] = [
+  { key: "all", label: "ทั้งหมด" },
+  { key: "mega", label: "Mega" },
+  { key: "large", label: "Large" },
+  { key: "mid", label: "Mid" },
+  { key: "small", label: "Small" },
+];
 
 function StatTile({
   label,
@@ -25,11 +34,21 @@ function StatTile({
 
 export default function MainPage() {
   const { data, error } = useScreen();
+  const [tier, setTier] = useState<CapTier | "all">("all");
+  const [techOnly, setTechOnly] = useState(false);
   const symbols = useMemo(
     () => (data ? data.picks.map((p) => p.symbol) : []),
     [data]
   );
   const quotes = useQuotes(symbols);
+  const visiblePicks = useMemo(() => {
+    if (!data) return [];
+    return data.picks.filter(
+      (p) =>
+        (tier === "all" || p.capTier === tier) &&
+        (!techOnly || p.sector === "Technology")
+    );
+  }, [data, tier, techOnly]);
 
   if (error && !data) {
     return (
@@ -72,18 +91,54 @@ export default function MainPage() {
       )}
       <section>
         <h1 className="text-xl font-bold">
-          หุ้นแนะนำวันนี้ · US Small-Cap Momentum
+          หุ้นแนะนำวันนี้ · US Stocks Momentum (ทุกขนาด)
         </h1>
         <p className="mt-1 text-sm text-ink-2">
-          คัดกรองจากหุ้นขนาดเล็ก (มูลค่าตลาด $50M–$2B)
-          ที่มีแรงซื้อผิดปกติดันราคาเป็นขาขึ้น
-          วิเคราะห์ด้วย Smart Money Concept (Order Block / Break of Structure)
-          และ Volume Profile (POC / Value Area)
+          สแกนหุ้นสหรัฐฯ ทุกขนาด Mega/Large/Mid/Small ทุกกลุ่มอุตสาหกรรม
+          (NYSE / NASDAQ / S&P 500) ที่มีแรงซื้อผิดปกติดันราคาเป็นขาขึ้น
+          เน้นหุ้นเทคโนโลยีที่ใกล้ถึงจุดทำกำไร (ตลาดคาดหวังต่ำ ศักยภาพโตสูง)
+          วิเคราะห์ด้วย Smart Money Concept (Order Block / BOS) และ Volume
+          Profile (POC / Value Area)
         </p>
         <p className="mt-1 text-xs text-muted">
-          ข้อมูล ณ {fmtTimeTh(data.generatedAt)} · สถานะตลาด:{" "}
-          {data.marketState} · ราคาอัปเดตอัตโนมัติทุก 15 วินาที
+          รายชื่อรอบวันที่ {data.tradingDay} (อัปเดตรอบใหม่ทุกวันช่วงเริ่ม
+          pre-market 04:00 ET) · สแกนเมื่อ {fmtTimeTh(data.generatedAt)} ·
+          สถานะตลาด: {data.marketState} · ราคาอัปเดตทุก 10 วินาทีช่วงตลาดเปิด
+          / 15 วินาทีนอกเวลา
         </p>
+      </section>
+
+      <section className="flex flex-wrap items-center gap-2">
+        <div className="flex gap-1" role="group" aria-label="กรองตามขนาดหุ้น">
+          {TIER_CHIPS.map((c) => (
+            <button
+              key={c.key}
+              onClick={() => setTier(c.key)}
+              className={`rounded-md border px-3 py-1 text-xs font-medium ${
+                tier === c.key
+                  ? "border-lv-entry bg-lv-entry/10 text-ink"
+                  : "border-border text-ink-2 hover:bg-grid/60"
+              }`}
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={() => setTechOnly((v) => !v)}
+          className={`rounded-md border px-3 py-1 text-xs font-medium ${
+            techOnly
+              ? "border-lv-tp bg-lv-tp/10 text-ink"
+              : "border-border text-ink-2 hover:bg-grid/60"
+          }`}
+        >
+          เฉพาะ Technology
+        </button>
+        {visiblePicks.length < data.picks.length && (
+          <span className="text-xs text-muted">
+            แสดง {visiblePicks.length} จาก {data.picks.length} ตัว
+          </span>
+        )}
       </section>
 
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -105,7 +160,7 @@ export default function MainPage() {
         />
       </section>
 
-      <StockTable picks={data.picks} quotes={quotes} />
+      <StockTable picks={visiblePicks} quotes={quotes} />
 
       <section className="rounded-lg border border-border bg-surface p-4 text-xs leading-5 text-ink-2">
         <h3 className="mb-1 font-semibold text-ink">วิธีอ่านตาราง</h3>

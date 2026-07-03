@@ -35,7 +35,8 @@ export function useScreen() {
   return { data, error };
 }
 
-// Poll live quotes for a set of tickers every 15 seconds.
+// Poll live quotes: every 10 s while the market is in regular session
+// (real-time trading), 15 s otherwise (pre/after-market, closed).
 export function useQuotes(symbols: string[]) {
   const [quotes, setQuotes] = useState<Record<string, Quote>>({});
   const key = symbols.join(",");
@@ -43,6 +44,8 @@ export function useQuotes(symbols: string[]) {
   useEffect(() => {
     if (!key) return;
     let alive = true;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
     const load = async () => {
       const results = await Promise.allSettled(
         key.split(",").map(async (s) => {
@@ -52,19 +55,24 @@ export function useQuotes(symbols: string[]) {
         })
       );
       if (!alive) return;
+      let regular = false;
       setQuotes((prev) => {
         const next = { ...prev };
         for (const r of results) {
-          if (r.status === "fulfilled") next[r.value.symbol] = r.value;
+          if (r.status === "fulfilled") {
+            next[r.value.symbol] = r.value;
+            if (r.value.marketState === "REGULAR") regular = true;
+          }
         }
         return next;
       });
+      timer = setTimeout(load, regular ? 10_000 : 15_000);
     };
+
     load();
-    const id = setInterval(load, 15_000);
     return () => {
       alive = false;
-      clearInterval(id);
+      if (timer) clearTimeout(timer);
     };
   }, [key]);
 

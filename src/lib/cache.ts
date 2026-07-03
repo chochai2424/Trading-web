@@ -13,10 +13,11 @@ const pending = new Map<string, Promise<unknown>>();
 export async function cached<T>(
   key: string,
   ttlMs: number,
-  fetcher: () => Promise<T>
+  fetcher: () => Promise<T>,
+  opts: { force?: boolean } = {}
 ): Promise<T> {
   const hit = store.get(key);
-  if (hit && hit.expiresAt > Date.now()) return hit.value as T;
+  if (!opts.force && hit && hit.expiresAt > Date.now()) return hit.value as T;
 
   // De-duplicate concurrent requests for the same key
   const inFlight = pending.get(key);

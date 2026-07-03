@@ -16,6 +16,38 @@ export const LEVEL_LABELS_TH = {
   stopLoss: "Stop Loss (จุดตัดขาดทุน)",
 } as const;
 
+export const CAP_TIER_LABELS: Record<string, string> = {
+  mega: "Mega Cap",
+  large: "Large Cap",
+  mid: "Mid Cap",
+  small: "Small Cap",
+};
+
+// Market-state-aware price display:
+//   PRE  -> pre-market price is the headline, regular close beneath
+//   REGULAR -> live price (updates every poll)
+//   POST/CLOSED -> close is the headline, after-market price beneath
+export function priceDisplay(
+  marketState: string,
+  price: number,
+  pre: number | null,
+  post: number | null
+): { main: number; subLabel: string | null; sub: number | null } {
+  if (marketState.startsWith("PRE") && pre != null) {
+    return { main: pre, subLabel: "ปิดล่าสุด", sub: price };
+  }
+  if (marketState === "REGULAR") {
+    return { main: price, subLabel: null, sub: null };
+  }
+  if (post != null) {
+    return { main: price, subLabel: "after", sub: post };
+  }
+  if (pre != null) {
+    return { main: price, subLabel: "pre", sub: pre };
+  }
+  return { main: price, subLabel: null, sub: null };
+}
+
 export function fmtUsd(v: number | null | undefined): string {
   if (v == null || !isFinite(v)) return "-";
   return `$${v.toLocaleString("en-US", {
