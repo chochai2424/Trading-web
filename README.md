@@ -1,13 +1,17 @@
-# US Small-Cap SMC Scanner
+# US Stocks SMC Scanner
 
-เว็บสแกนหุ้นสหรัฐฯ ขนาดเล็ก (Small-Cap) แบบเรียลไทม์ สำหรับนักเทรดระยะสั้น
-วิเคราะห์ด้วย **Smart Money Concept (SMC)** และ **Volume Profile**
+เว็บสแกนหุ้นสหรัฐฯ ทุกขนาด (Mega/Large/Mid/Small) แบบเรียลไทม์
+สำหรับนักเทรดระยะสั้น วิเคราะห์ด้วย **Smart Money Concept (SMC)** และ
+**Volume Profile** — เน้นหุ้นเทคโนโลยีที่ใกล้ถึงจุดทำกำไร
+(ตลาดคาดหวังต่ำ ศักยภาพเติบโตสูง)
 
 ## Pipeline: Browsing → Analyse → Conclude
 
-1. **Browsing** — ดึงหุ้นจาก Yahoo Finance screeners (small-cap gainers, day gainers,
-   aggressive small caps, most actives) แล้วคัดกรอง: มูลค่าตลาด $50M–$2B,
-   ราคาบวก, วอลุ่มสูงกว่าค่าเฉลี่ย ≥ 1.5 เท่า
+1. **Browsing** — ดึงหุ้นจาก Yahoo Finance screeners ครอบคลุมทุกขนาดและทุก
+   sector (day gainers, most actives, small-cap gainers, aggressive small caps,
+   growth technology, undervalued growth, undervalued large caps)
+   แล้วคัดกรอง: มูลค่าตลาด ≥ $50M, ราคาบวก, วอลุ่มสูงกว่าค่าเฉลี่ย
+   ≥ 1.5 เท่า (≥ 1.2 เท่าสำหรับหุ้นใหญ่ ≥ $10B)
 2. **Analyse** — วิเคราะห์กราฟรายวัน ~3 เดือนของแต่ละตัว:
    - **Volume Profile**: POC (Point of Control), Value Area High/Low (70%)
    - **SMC**: จุด swing high/low → Break of Structure (BOS) → Bullish Order Block
@@ -37,6 +41,14 @@
 - **การแจ้งเตือนระดับราคา** — กระดิ่งบนแถบเมนูแจ้งเมื่อราคาแตะจุดเข้าซื้อ
   (OB), Take Profit หรือ Stop Loss ของหุ้นแนะนำและ Watchlist
   (รองรับ browser notification)
+- **โฟกัสหุ้นเทคใกล้ทำกำไร** — ดึงข้อมูล sector + กำไร (EPS/margin) มาให้คะแนน
+  เพิ่มกับหุ้น Technology และหุ้นที่ trailing EPS ยังติดลบแต่ forward EPS
+  เป็นบวก (ป้าย "ใกล้ทำกำไร")
+- **ราคาตามช่วงตลาด** — pre-market เด่นช่วงก่อนเปิด, ราคา live อัปเดตทุก 10
+  วินาทีช่วงตลาดเปิด, แสดงราคา after-market หลังตลาดปิด
+- **รายชื่ออัปเดตรายวัน** — รายชื่อ 10 ตัวสร้างใหม่ทุกวันตอนเริ่ม pre-market
+  (04:00 ET); ระหว่างวันถ้าหุ้นหลุดเงื่อนไข SMC (ราคาต่ำกว่า SL) จะติดป้าย
+  "⚠ หลุด SMC" และถูกแทนที่ในรอบถัดไป (มี Vercel cron อุ่นข้อมูลรายวัน)
 
 ## Stack
 

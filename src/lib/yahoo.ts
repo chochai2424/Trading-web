@@ -30,12 +30,55 @@ export interface RawQuote {
   quoteType?: string;
 }
 
+// Covers small -> mega caps across US exchanges, plus the "market
+// expects little / growth potential" pools (undervalued + growth tech)
 const SCREENER_IDS = [
   "small_cap_gainers",
   "day_gainers",
   "aggressive_small_caps",
   "most_actives",
+  "growth_technology_stocks",
+  "undervalued_growth_stocks",
+  "undervalued_large_caps",
 ] as const;
+
+export interface CompanyProfile {
+  sector: string | null;
+  industry: string | null;
+  trailingEps: number | null;
+  forwardEps: number | null;
+  profitMargin: number | null; // fraction, e.g. -0.05
+  revenueGrowth: number | null; // fraction, yoy
+}
+
+// Sector + profitability fundamentals for the tech/nearly-profitable
+// focus. Heavier call, so only used on the analyze set and cached long.
+export async function fetchProfile(symbol: string): Promise<CompanyProfile> {
+  return cached(`profile:${symbol}`, 6 * 3600_000, async () => {
+    try {
+      const res = await yahooFinance.quoteSummary(
+        symbol,
+        { modules: ["assetProfile", "defaultKeyStatistics", "financialData"] },
+        { validateResult: false }
+      );
+      const asset = res.assetProfile;
+      const stats = res.defaultKeyStatistics;
+      const fin = res.financialData;
+      return {
+        sector: asset?.sector ?? null,
+        industry: asset?.industry ?? null,
+        trailingEps: stats?.trailingEps ?? null,
+        forwardEps: stats?.forwardEps ?? null,
+        profitMargin: fin?.profitMargins ?? null,
+        revenueGrowth: fin?.revenueGrowth ?? null,
+      };
+    } catch (err) {
+      console.error(`profile ${symbol} failed:`, (err as Error).message);
+      const { sampleProfile } = await import("./sample");
+      return sampleProfile(symbol);
+    }
+  });
+}
 
 // Browse step: pull candidate symbols from Yahoo's predefined screeners.
 // Returns live=false when Yahoo is unreachable so callers can fall back

@@ -2,7 +2,13 @@
 
 import Link from "next/link";
 import type { Quote, StockPick } from "@/lib/types";
-import { fmtPct, fmtUsd, LEVEL_COLORS } from "@/lib/format";
+import {
+  CAP_TIER_LABELS,
+  fmtPct,
+  fmtUsd,
+  LEVEL_COLORS,
+  priceDisplay,
+} from "@/lib/format";
 
 function LevelCell({ value, color }: { value: number; color: string }) {
   return (
@@ -32,12 +38,15 @@ export default function StockTable({
     const header = [
       "ชื่อหุ้น",
       "ราคาปัจจุบัน (pre market)",
+      "After Market",
       "High",
       "Take Profit",
       "Mid",
       "จุดเข้าซื้อ (Order Block)",
       "Stop Loss",
       "เปลี่ยนแปลง %",
+      "Cap Tier",
+      "Sector",
     ];
     const rows = picks.map((p) => {
       const q = quotes[p.symbol];
@@ -45,12 +54,15 @@ export default function StockTable({
       return [
         p.symbol,
         price,
+        q?.postMarketPrice ?? p.postMarketPrice ?? "",
         p.levels.high,
         p.levels.takeProfit,
         p.levels.mid,
         p.levels.entry,
         p.levels.stopLoss,
         (q?.changePercent ?? p.changePercent).toFixed(2),
+        p.capTier,
+        p.sector ?? "",
       ].join(",");
     });
     const blob = new Blob(["﻿" + [header.join(","), ...rows].join("\n")], {
@@ -67,7 +79,7 @@ export default function StockTable({
     <div className="rounded-lg border border-border bg-surface">
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <h2 className="text-sm font-semibold text-ink-2">
-          {title ?? "ตารางหุ้นแนะนำ 10 อันดับ (Small-Cap · SMC + Volume Profile)"}
+          {title ?? "ตารางหุ้นแนะนำ 10 อันดับ (ทุกขนาด · SMC + Volume Profile)"}
         </h2>
         <button
           onClick={exportCsv}
@@ -102,28 +114,55 @@ export default function StockTable({
             {picks.map((p) => {
               const q = quotes[p.symbol];
               const pre = q?.preMarketPrice ?? p.preMarketPrice;
+              const post = q?.postMarketPrice ?? p.postMarketPrice;
               const price = q?.price ?? p.price;
               const change = q?.changePercent ?? p.changePercent;
+              const state = q?.marketState ?? "UNKNOWN";
+              const disp = priceDisplay(state, price, pre, post);
+              const smcValid = price > p.levels.stopLoss;
               return (
                 <tr
                   key={p.symbol}
                   className="border-b border-grid last:border-0 hover:bg-grid/40"
                 >
                   <td className="px-4 py-2.5">
-                    <Link
-                      href={`/graph/${p.symbol}`}
-                      className="font-semibold text-lv-entry hover:underline"
-                    >
-                      {p.symbol}
-                    </Link>
-                    <div className="max-w-[180px] truncate text-xs text-muted">
+                    <span className="flex items-center gap-1.5">
+                      <Link
+                        href={`/graph/${p.symbol}`}
+                        className="font-semibold text-lv-entry hover:underline"
+                      >
+                        {p.symbol}
+                      </Link>
+                      {p.nearlyProfitable && (
+                        <span className="rounded border border-lv-tp/50 px-1 py-px text-[10px] leading-4 text-lv-tp">
+                          ใกล้ทำกำไร
+                        </span>
+                      )}
+                      {!smcValid && (
+                        <span className="rounded border border-lv-sl/50 px-1 py-px text-[10px] leading-4 text-lv-sl">
+                          ⚠ หลุด SMC
+                        </span>
+                      )}
+                    </span>
+                    <div className="max-w-[200px] truncate text-xs text-muted">
                       {p.name}
+                    </div>
+                    <div className="text-[10px] text-muted">
+                      {CAP_TIER_LABELS[p.capTier]}
+                      {p.sector ? ` · ${p.sector}` : ""}
                     </div>
                   </td>
                   <td className="px-4 py-2.5">
-                    <div className="tabular font-medium">{fmtUsd(price)}</div>
+                    <div className="tabular font-medium">
+                      {fmtUsd(disp.main)}
+                      {state === "REGULAR" && (
+                        <span className="ml-1 text-[10px] text-up">● live</span>
+                      )}
+                    </div>
                     <div className="tabular text-xs text-muted">
-                      pre: {pre != null ? fmtUsd(pre) : "-"}
+                      {disp.subLabel
+                        ? `${disp.subLabel}: ${fmtUsd(disp.sub)}`
+                        : " "}
                     </div>
                   </td>
                   <td

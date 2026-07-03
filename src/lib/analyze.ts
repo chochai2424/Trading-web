@@ -1,8 +1,36 @@
 import { deriveLevels } from "./levels";
 import { analyzeSmc } from "./smc";
-import type { IntradayInfo, OrderBlock, StockPick } from "./types";
+import type { CapTier, IntradayInfo, OrderBlock, StockPick } from "./types";
 import { computeVolumeProfile } from "./volumeProfile";
-import { fetchCandles, type RawQuote } from "./yahoo";
+import {
+  fetchCandles,
+  fetchProfile,
+  type CompanyProfile,
+  type RawQuote,
+} from "./yahoo";
+
+export function capTierOf(marketCap: number): CapTier {
+  if (marketCap >= 200e9) return "mega";
+  if (marketCap >= 10e9) return "large";
+  if (marketCap >= 2e9) return "mid";
+  return "small";
+}
+
+// "Market expects little, growth potential high": still loss-making on
+// trailing EPS but expected to turn profitable, or hovering at
+// breakeven margins with growing revenue.
+export function isNearlyProfitable(p: CompanyProfile): boolean {
+  if (p.trailingEps != null && p.forwardEps != null) {
+    if (p.trailingEps < 0 && p.forwardEps >= 0) return true;
+  }
+  if (p.profitMargin != null) {
+    const growing = (p.revenueGrowth ?? 0) > 0;
+    if (p.profitMargin > -0.15 && p.profitMargin < 0.05 && growing) {
+      return true;
+    }
+  }
+  return false;
+}
 
 function buildRationaleTh(pick: Omit<StockPick, "rationaleTh">): string {
   const parts: string[] = [];
@@ -21,6 +49,13 @@ function buildRationaleTh(pick: Omit<StockPick, "rationaleTh">): string {
       `ปรับจุดเข้าซื้อให้แม่นยำขึ้นจาก Order Block กราฟ 15 นาที ($${pick.intraday.orderBlockLow?.toFixed(2)}–$${pick.intraday.orderBlockHigh?.toFixed(2)})`
     );
   }
+  if (pick.nearlyProfitable) {
+    parts.push(
+      pick.sector === "Technology"
+        ? "หุ้นเทคโนโลยีใกล้ถึงจุดทำกำไร ตลาดยังคาดหวังต่ำแต่ศักยภาพเติบโตสูง"
+        : "ธุรกิจใกล้ถึงจุดทำกำไร ตลาดยังคาดหวังต่ำ"
+    );
+  }
   parts.push(
     `วอลุ่มซื้อสูงกว่าค่าเฉลี่ย ${pick.relVolume.toFixed(1)} เท่า ดันราคาขึ้น ${pick.changePercent.toFixed(1)}%`
   );
@@ -36,7 +71,7 @@ function buildRationaleTh(pick: Omit<StockPick, "rationaleTh">): string {
 // candles, optionally refined with a 15m order block for the entry/SL.
 export async function analyzeSymbol(
   q: RawQuote,
-  opts: { intraday?: boolean } = {}
+  opts: { intraday?: boolean; profile?: boolean } = {}
 ): Promise<StockPick | null> {
   const symbol = q.symbol;
   try {
@@ -85,6 +120,13 @@ export async function analyzeSymbol(
       (q.regularMarketVolume ?? 0) /
       Math.max(q.averageDailyVolume3Month ?? 1, 1);
 
+    // Sector + profitability fundamentals (tech / nearly-profitable focus)
+    let company: CompanyProfile | null = null;
+    if (opts.profile) {
+      company = await fetchProfile(symbol);
+    }
+    const nearlyProfitable = company ? isNearlyProfitable(company) : false;
+
     // Score: high buy volume, confirmed bullish structure, price holding
     // above the point of control, and a nearby (fresh) entry zone
     let score = relVolume * 2 + (q.regularMarketChangePercent ?? 0) * 0.5;
@@ -92,6 +134,9 @@ export async function analyzeSymbol(
     if (smc.orderBlock?.confirmed) score += 4;
     if (price >= profile.poc) score += 2;
     if (intraday?.bullishBos) score += 1;
+    // Focus boosts: Information Technology + nearly profitable
+    if (company?.sector === "Technology") score += 3;
+    if (nearlyProfitable) score += 3;
     const entryDistance = (price - levels.entry) / price;
     score += Math.max(0, 3 - entryDistance * 20); // closer entry = better
 
@@ -100,8 +145,13 @@ export async function analyzeSymbol(
       name: q.shortName || q.longName || symbol,
       price,
       preMarketPrice: q.preMarketPrice ?? null,
+      postMarketPrice: q.postMarketPrice ?? null,
       changePercent: q.regularMarketChangePercent ?? 0,
       marketCap: q.marketCap ?? 0,
+      capTier: capTierOf(q.marketCap ?? 0),
+      sector: company?.sector ?? null,
+      industry: company?.industry ?? null,
+      nearlyProfitable,
       volume: q.regularMarketVolume ?? 0,
       avgVolume: q.averageDailyVolume3Month ?? 0,
       relVolume,
@@ -118,6 +168,7 @@ export async function analyzeSymbol(
         impulseRelVolume: Number(smc.impulseRelVolume.toFixed(2)),
       },
       intraday,
+      smcValid: price > levels.stopLoss,
       score: Number(score.toFixed(2)),
     };
     return { ...base, rationaleTh: buildRationaleTh(base) };

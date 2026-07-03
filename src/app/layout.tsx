@@ -3,9 +3,9 @@ import Navbar from "@/components/Navbar";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "US Small-Cap SMC Scanner",
+  title: "US Stocks SMC Scanner",
   description:
-    "สแกนหุ้นสหรัฐฯ ขนาดเล็กแบบเรียลไทม์ ด้วย Smart Money Concept และ Volume Profile",
+    "สแกนหุ้นสหรัฐฯ ทุกขนาดแบบเรียลไทม์ ด้วย Smart Money Concept และ Volume Profile เน้นหุ้นเทคโนโลยีใกล้ถึงจุดทำกำไร",
 };
 
 export default function RootLayout({

@@ -30,7 +30,7 @@ export default function Navbar() {
       <nav className="mx-auto flex max-w-7xl items-center gap-1 px-4 py-3">
         <Link href="/" className="mr-4 flex items-center gap-2">
           <span className="text-lg font-bold tracking-tight">
-            US Small-Cap <span className="text-lv-entry">SMC</span> Scanner
+            US Stocks <span className="text-lv-entry">SMC</span> Scanner
           </span>
         </Link>
         {LINKS.map((l) => (

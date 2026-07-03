@@ -44,13 +44,22 @@ export interface IntradayInfo {
   refined: boolean; // entry/SL tightened using the 15m order block
 }
 
+export type CapTier = "mega" | "large" | "mid" | "small";
+
 export interface StockPick {
   symbol: string;
   name: string;
   price: number; // regular market price
   preMarketPrice: number | null;
+  postMarketPrice: number | null;
   changePercent: number;
   marketCap: number;
+  capTier: CapTier;
+  sector: string | null;
+  industry: string | null;
+  // trailing EPS < 0 but forward EPS >= 0, or margin near breakeven
+  // with growing revenue — "market expects little, turning profitable"
+  nearlyProfitable: boolean;
   volume: number;
   avgVolume: number;
   relVolume: number;
@@ -63,12 +72,14 @@ export interface StockPick {
     impulseRelVolume: number;
   };
   intraday: IntradayInfo | null; // 15m refinement (null = not analyzed)
+  smcValid: boolean; // false once price breaks the stop loss intraday
   score: number;
   rationaleTh: string; // analysis summary in Thai
 }
 
 export interface ScreenResult {
   generatedAt: number; // unix ms
+  tradingDay: string; // list rebuilds at pre-market open (04:00 ET)
   marketState: string;
   dataSource: "live" | "sample"; // sample = Yahoo unreachable, demo data
   picks: StockPick[];
