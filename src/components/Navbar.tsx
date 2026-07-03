@@ -21,6 +21,11 @@ const LINKS = [
     label: "รายการโปรด",
     match: (p: string) => p.startsWith("/watchlist"),
   },
+  {
+    href: "/algorithm",
+    label: "วิธีคัดหุ้น",
+    match: (p: string) => p.startsWith("/algorithm"),
+  },
 ];
 
 export default function Navbar() {
